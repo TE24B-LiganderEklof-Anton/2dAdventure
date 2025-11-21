@@ -1,8 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "Xqml4jFlwZk=",
+  "dgSpecHash": "lV9txbs2jeM=",
   "success": true,
   "projectFilePath": "C:\\Users\\anton.ligandereklof\\Documents\\Programmering\\2dAdventure\\2dAdventure\\2dAdventure.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\anton.ligandereklof\\.nuget\\packages\\raylib-cs\\7.0.2\\raylib-cs.7.0.2.nupkg.sha512"
+  ],
   "logs": []
 }

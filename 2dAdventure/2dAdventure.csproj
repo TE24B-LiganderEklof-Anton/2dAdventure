@@ -5,7 +5,11 @@
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>_2dAdventure</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <!-- <Nullable>enable</Nullable> -->
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Raylib-cs" Version="7.0.2" />
+  </ItemGroup>
 
 </Project>
