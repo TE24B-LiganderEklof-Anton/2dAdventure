@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("2dAdventure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1bc71f9f3407be43aae4dbe22ffd3541f85ceef8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e8086d8ae21e9357a1de0e18301e17bce8354998")]
 [assembly: System.Reflection.AssemblyProductAttribute("2dAdventure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("2dAdventure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
