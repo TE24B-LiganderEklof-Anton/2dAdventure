@@ -13,9 +13,12 @@ KeyboardKey downKey = KeyboardKey.Down;
 KeyboardKey rightKey = KeyboardKey.Right;
 KeyboardKey leftKey = KeyboardKey.Left;
 
-Raylib.InitWindow(800,600, "Game");
+int fovRadius = 120;
+
+int windowSize = (2*world.padding) + ((fovRadius*2+1)*world.tileGap) + ((fovRadius*2+1)*world.tileSize);
+Raylib.InitWindow(windowSize, windowSize, "Game");
 Raylib.SetTargetFPS(60);
-Vector2 pos = new(0,0);
+Vector2 pos = new(0, 0);
 float moveCooldown = 0.1f;
 
 while (!Raylib.WindowShouldClose())
@@ -23,30 +26,43 @@ while (!Raylib.WindowShouldClose())
     Raylib.BeginDrawing();
     Raylib.ClearBackground(Color.Black);
 
-    world.DrawFOV((int)pos.Y, (int)pos.X, 5,5);
+    world.DrawFOV((int)pos.Y, (int)pos.X, fovRadius, fovRadius);
 
+    Vector2 targetPos = pos;
 
     if (Raylib.IsKeyDown(upKey))
     {
-        pos.Y--;
-        Raylib.WaitTime(moveCooldown);
+        targetPos.Y--;
+        // Raylib.WaitTime(moveCooldown);
     }
     if (Raylib.IsKeyDown(downKey))
     {
-        pos.Y++;
-        Raylib.WaitTime(moveCooldown);
+        targetPos.Y++;
+        // Raylib.WaitTime(moveCooldown);
     }
     if (Raylib.IsKeyDown(rightKey))
     {
-        pos.X++;
-        Raylib.WaitTime(moveCooldown);
+        targetPos.X++;
+        // Raylib.WaitTime(moveCooldown);
     }
     if (Raylib.IsKeyDown(leftKey))
     {
-        pos.X--;
-        Raylib.WaitTime(moveCooldown);
+        targetPos.X--;
+        // Raylib.WaitTime(moveCooldown);
     }
-    
+
+    if (pos != targetPos)
+    {
+        Tile targetTile = world.GetTileFromCoords((int)targetPos.Y, (int)targetPos.X);
+        if (targetTile.terrain.traversable)
+        {
+            pos = targetPos;
+            Raylib.WaitTime(moveCooldown);
+        }  
+    }
+
+
+
     // Console.WriteLine(pos);
     Raylib.EndDrawing();
 }
@@ -54,10 +70,12 @@ while (!Raylib.WindowShouldClose())
 class Tile
 {
     public Terrain terrain;
+    public int colorVariation = 0;
+
     // public Structure structure;
 }
 enum Structure
-{ 
+{
     hut,
     ruins,
     campfire,
@@ -66,6 +84,8 @@ enum Structure
 class Terrain
 {
     public Color tileColor = Color.Pink;
+
+    public int colorVariation = 0;
     // public Structure[] validStructures;
     public bool traversable = true;
 }
@@ -83,42 +103,43 @@ class World
         debug.tileColor = Color.Purple;
 
         plains.tileColor = new(0, 255, 0);
+        plains.colorVariation = 50;
 
         water.tileColor = Color.Blue;
         water.traversable = false;
+        water.colorVariation = 20;
 
-        mountains.tileColor = Color.Gray; 
+        mountains.tileColor = Color.Gray;
+        mountains.traversable = false;
+        mountains.colorVariation = 20;
     }
-    
 
     //first coordinate is Y second X, easier for me to visualize
     public Dictionary<int, Dictionary<int, Tile>> yAxis = new();
-    int tileSize = 30;
-    int tileGap = 10;
-    int padding = 30;
-    
+    public int tileSize = 3;
+    public int tileGap = 0;
+    public int padding = 30;
+    // int tileColorVariation = 30;
     (int, int) GetTileGraphicsPos(int yPos, int xPos)
     {
-        int graphicsYPos = padding + ((tileSize+tileGap)*yPos);
-        int graphicsXPos = padding + ((tileSize+tileGap)*xPos);
+        int graphicsYPos = padding + ((tileSize + tileGap) * yPos);
+        int graphicsXPos = padding + ((tileSize + tileGap) * xPos);
         return (graphicsYPos, graphicsXPos);
     }
-    void DrawTile(int yPos, int xPos, Tile tile)
+    void DrawTile(int yPos, int xPos, Tile tile, bool hightlight)
     {
-        int randomRGB = 10;
         (int graphicsYPos, int graphicsXPos) = GetTileGraphicsPos(yPos, xPos);
-        Color color = Color.Pink;
-        if (tile.terrain != null)
-        {
-            // Color randomizedColor = new(color.R + Random.Shared.Next(-randomRGB, randomRGB), color.G + Random.Shared.Next(-randomRGB, randomRGB), color.B + Random.Shared.Next(-randomRGB, randomRGB));
-            color = tile.terrain.tileColor;
-        }
+
+        Color color = tile.terrain.tileColor;
+        color = AdjustColor(color, tile.colorVariation);
+
+        if (hightlight) Raylib.DrawRectangle(graphicsXPos - tileGap / 2, graphicsYPos - tileGap / 2, tileSize + tileGap, tileSize + tileGap, Color.White);
 
         Raylib.DrawRectangle(graphicsXPos, graphicsYPos, tileSize, tileSize, color);
     }
     public void DrawFOV(int yCenter, int xCenter, int yRadius, int xRadius)
     {
-        
+        Tile centerTile = GetTileFromCoords(yCenter, xCenter);
         int yMin = yCenter - yRadius;
         int yMax = yCenter + yRadius;
         int xMin = xCenter - xRadius;
@@ -131,7 +152,11 @@ class World
             for (int x = xMin; x <= xMax; x++)
             {
                 Tile tile = GetTileFromCoords(y, x);
-                DrawTile(relativeY, relativeX, tile);
+
+                bool shouldHightlight = false;
+                if (tile == centerTile) shouldHightlight = true;
+
+                DrawTile(relativeY, relativeX, tile, shouldHightlight);
                 relativeX++;
             }
             relativeY++;
@@ -152,7 +177,7 @@ class World
     }
     public Tile GetTileFromCoords(int y, int x)
     {
-        return GetTileFromCoords(y,x, true);
+        return GetTileFromCoords(y, x, true);
     }
     public Tile GetTileFromCoords(int y, int x, bool generateIfMissing)
     {
@@ -161,7 +186,7 @@ class World
         {
             return xAxis[x];
         }
-        else if(generateIfMissing)
+        else if (generateIfMissing)
         {
             Tile newTile = GenerateTileAtCoords(y, x);
             return newTile;
@@ -170,32 +195,45 @@ class World
         {
             return null;
         }
-        
-    }
 
-    public List<Tile> GetNeighboringTiles(int yPos, int xPos, int radius)
+    }
+    List<Tile> GetNeighboringTiles(int yPos, int xPos, int radius)
     {
         List<Tile> tiles = new();
-        for (int y = yPos-radius; y <= yPos+radius; y++)
+        for (int y = yPos - radius; y <= yPos + radius; y++)
         {
-            for (int x = xPos-radius; x <= xPos+radius; x++)
+            for (int x = xPos - radius; x <= xPos + radius; x++)
             {
-                if(y == yPos && x == xPos)
+                if (y == yPos && x == xPos)
                 {
                     continue;
                 }
-                Tile tile = GetTileFromCoords(y,x, false);
+                Tile tile = GetTileFromCoords(y, x, false);
                 if (tile != null) tiles.Add(tile);
             }
         }
         return tiles;
     }
-    public Tile GenerateTileAtCoords(int y, int x)
+    int AdjustRGBValue(int value, int change)
     {
-        Dictionary<int, Tile> xAxis = GetXAxisDict(y);
-        Tile newTile = new();
-        
+        value += change;
+        if (value > 255) value = 255;
+        else if (value < 0) value = 0;
 
+        return value;
+    }
+
+    Color AdjustColor(Color color, int amount)
+    {
+        Color colorAdjusted = new(
+        AdjustRGBValue(color.R, amount),
+        AdjustRGBValue(color.G, amount),
+        AdjustRGBValue(color.B, amount)
+    );
+        return colorAdjusted;
+    }
+    Terrain SelectTerrain(int yPos, int xPos)
+    {
         Dictionary<Terrain, float> terrainValues = new()
         {
             {water, 0.1f},
@@ -211,7 +249,7 @@ class World
             {debug, 1}
         };
 
-        List<Tile> neighboringTiles = GetNeighboringTiles(y, x, 1);
+        List<Tile> neighboringTiles = GetNeighboringTiles(yPos, xPos, 1);
 
         foreach (Tile tile in neighboringTiles)
         {
@@ -230,75 +268,40 @@ class World
         }
 
         float totalTerrainValue = 0;
-        foreach (KeyValuePair<Terrain,float> pair in terrainValues)
+        foreach (KeyValuePair<Terrain, float> pair in terrainValues)
         {
-            // Console.WriteLine(pair.Value);
             totalTerrainValue += pair.Value;
         }
-        // Console.WriteLine(totalTerrainValue);
-        // Console.WriteLine("////////////////////////////////////////////////////");
 
         float selectionValue = (float)Random.Shared.NextDouble() * totalTerrainValue;
-        // Console.WriteLine(selectionValue);
 
         Terrain selectedTerrain = plains;
 
-        foreach (KeyValuePair<Terrain,float> pair in terrainValues)
+        foreach (KeyValuePair<Terrain, float> pair in terrainValues)
         {
             totalTerrainValue -= pair.Value;
             if (totalTerrainValue < selectionValue)
             {
                 Console.WriteLine(pair.Key);
-                selectedTerrain = pair.Key; //issue is here
-                // Console.WriteLine("break");
+                selectedTerrain = pair.Key;
                 break;
             }
         }
-        Console.WriteLine("==========================================");
-        
-        //  if (selectedTerrain == water)
-        // {
-        //     Console.WriteLine("water");
-        // }
-        // else if (selectedTerrain == debug)
-        // {
-        //     Console.WriteLine("debug");
-        // }
-        // else if (selectedTerrain == plains)
-        // {
-        //     Console.WriteLine("plains");
-        // }
-        // else if (selectedTerrain == null)
-        // {
-        //     Console.WriteLine("null");
-        // }
-        // else
-        // {
-        //     Console.WriteLine("none");
-        // }
-        
+        return selectedTerrain;
+    }
+    public Tile GenerateTileAtCoords(int y, int x)
+    {
+        Dictionary<int, Tile> xAxis = GetXAxisDict(y);
+        Tile newTile = new();
 
+
+        Terrain selectedTerrain = SelectTerrain(y,x);
         newTile.terrain = selectedTerrain;
-        // Console.WriteLine(neighboringTiles.Count);
-        // Console.WriteLine(selectedTerrain);
+        int colorVariation = newTile.terrain.colorVariation;
+        newTile.colorVariation = Random.Shared.Next(-colorVariation, colorVariation);
 
 
 
-        // // //will be replaced with a proper algoritm, random for now
-        // int terrainType = Random.Shared.Next(3);
-
-        // if (terrainType == 0)
-        // {
-        //     newTile.terrain = water;
-        // }
-        // else if (terrainType == 1)
-        // {
-        //     newTile.terrain = plains;
-        // }
-        // else if (terrainType == 2)
-        // {
-        //     newTile.terrain = mountains;
-        // }
 
         xAxis.Add(x, newTile);
 
