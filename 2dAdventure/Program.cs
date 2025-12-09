@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.ComponentModel;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
@@ -13,7 +14,7 @@ KeyboardKey downKey = KeyboardKey.Down;
 KeyboardKey rightKey = KeyboardKey.Right;
 KeyboardKey leftKey = KeyboardKey.Left;
 
-int fovRadius = 120;
+int fovRadius = 500;
 
 int windowSize = (2*world.padding) + ((fovRadius*2+1)*world.tileGap) + ((fovRadius*2+1)*world.tileSize);
 Raylib.InitWindow(windowSize, windowSize, "Game");
@@ -25,6 +26,9 @@ while (!Raylib.WindowShouldClose())
 {
     Raylib.BeginDrawing();
     Raylib.ClearBackground(Color.Black);
+
+
+    
 
     world.DrawFOV((int)pos.Y, (int)pos.X, fovRadius, fovRadius);
 
@@ -98,28 +102,41 @@ class World
     Terrain water = new();
     Terrain mountains = new();
 
+    Terrain beach = new();
     public World()
     {
         debug.tileColor = Color.Purple;
 
-        plains.tileColor = new(0, 255, 0);
-        plains.colorVariation = 50;
+        plains.tileColor = new(0, 225, 0);
+        plains.colorVariation = 20;
 
-        water.tileColor = Color.Blue;
-        water.traversable = false;
-        water.colorVariation = 20;
+        water.tileColor = new(50,150,235);
+        water.traversable = true;
+        water.colorVariation = 15;
 
         mountains.tileColor = Color.Gray;
-        mountains.traversable = false;
+        mountains.traversable = true;
         mountains.colorVariation = 20;
+
+        beach.tileColor = new(194, 178, 128);
+        beach.colorVariation = 20;
     }
 
     //first coordinate is Y second X, easier for me to visualize
     public Dictionary<int, Dictionary<int, Tile>> yAxis = new();
-    public int tileSize = 3;
+    public int tileSize = 2;
     public int tileGap = 0;
     public int padding = 30;
     // int tileColorVariation = 30;
+    static int GetTerrainFrequency(List<Tile> tileList, Terrain terrain)
+    {
+        int amount = 0;
+        foreach (Tile tile in tileList)
+        {
+            if (tile.terrain == terrain) amount++;
+        }
+        return amount;
+    }
     (int, int) GetTileGraphicsPos(int yPos, int xPos)
     {
         int graphicsYPos = padding + ((tileSize + tileGap) * yPos);
@@ -145,21 +162,19 @@ class World
         int xMin = xCenter - xRadius;
         int xMax = xCenter + xRadius;
 
-        int relativeY = 0;
-        for (int y = yMin; y <= yMax; y++)
+        int screenY = 0;
+        for (int y = yMin; y <= yMax; y++, screenY++)
         {
-            int relativeX = 0;
-            for (int x = xMin; x <= xMax; x++)
+            int screenX = 0;
+            for (int x = xMin; x <= xMax; x++, screenX++)
             {
                 Tile tile = GetTileFromCoords(y, x);
 
                 bool shouldHightlight = false;
                 if (tile == centerTile) shouldHightlight = true;
 
-                DrawTile(relativeY, relativeX, tile, shouldHightlight);
-                relativeX++;
+                DrawTile(screenY, screenX, tile, shouldHightlight);
             }
-            relativeY++;
         }
     }
     Dictionary<int, Tile> GetXAxisDict(int y)
@@ -222,7 +237,6 @@ class World
 
         return value;
     }
-
     Color AdjustColor(Color color, int amount)
     {
         Color colorAdjusted = new(
@@ -236,16 +250,18 @@ class World
     {
         Dictionary<Terrain, float> terrainValues = new()
         {
-            {water, 0.1f},
+            {water, 0.05f},
             {plains, 0.5f},
-            {mountains, 0.7f},
+            {mountains, 0.01f},
+            {beach, 0},
             {debug, 0}
         };
         Dictionary<Terrain, float> neighboringBonus = new()
         {
-            {water, 0.75f},
-            {plains, 0.5f},
-            {mountains, -0.2f},
+            {water, 0.85f},
+            {plains, 0.6f},
+            {mountains, 1f},
+            {beach, 0},
             {debug, 1}
         };
 
@@ -275,18 +291,25 @@ class World
 
         float selectionValue = (float)Random.Shared.NextDouble() * totalTerrainValue;
 
-        Terrain selectedTerrain = plains;
+        Terrain selectedTerrain = debug;
 
         foreach (KeyValuePair<Terrain, float> pair in terrainValues)
         {
             totalTerrainValue -= pair.Value;
             if (totalTerrainValue < selectionValue)
             {
-                Console.WriteLine(pair.Key);
+                // Console.WriteLine(pair.Key);
                 selectedTerrain = pair.Key;
                 break;
             }
         }
+
+        if (selectedTerrain == plains)
+        {
+            int waterAmount = GetTerrainFrequency(neighboringTiles, water);
+            if (waterAmount >= 1) selectedTerrain = beach;
+        }
+
         return selectedTerrain;
     }
     public Tile GenerateTileAtCoords(int y, int x)
