@@ -14,9 +14,9 @@ KeyboardKey downKey = KeyboardKey.Down;
 KeyboardKey rightKey = KeyboardKey.Right;
 KeyboardKey leftKey = KeyboardKey.Left;
 
-int fovRadius = 500;
+int fovRadius = 100;
 
-int windowSize = (2*world.padding) + ((fovRadius*2+1)*world.tileGap) + ((fovRadius*2+1)*world.tileSize);
+int windowSize = (2 * world.padding) + ((fovRadius * 2 + 1) * world.tileGap) + ((fovRadius * 2 + 1) * world.tileSize);
 Raylib.InitWindow(windowSize, windowSize, "Game");
 Raylib.SetTargetFPS(60);
 Vector2 pos = new(0, 0);
@@ -28,7 +28,7 @@ while (!Raylib.WindowShouldClose())
     Raylib.ClearBackground(Color.Black);
 
 
-    
+
 
     world.DrawFOV((int)pos.Y, (int)pos.X, fovRadius, fovRadius);
 
@@ -62,7 +62,7 @@ while (!Raylib.WindowShouldClose())
         {
             pos = targetPos;
             Raylib.WaitTime(moveCooldown);
-        }  
+        }
     }
 
 
@@ -84,7 +84,6 @@ enum Structure
     ruins,
     campfire,
 }
-
 class Terrain
 {
     public Color tileColor = Color.Pink;
@@ -93,24 +92,34 @@ class Terrain
     // public Structure[] validStructures;
     public bool traversable = true;
 }
-
 class World
 {
+    //noise
+    FastNoiseLite noise = new();
+
     //terrain classes
     Terrain debug = new();
     Terrain plains = new();
     Terrain water = new();
     Terrain mountains = new();
+    Terrain snowyMountains = new();
 
     Terrain beach = new();
     public World()
     {
+        //noise
+        noise.SetNoiseType(FastNoiseLite.NoiseType.Perlin);
+        noise.SetFrequency(0.05f);
+        noise.SetSeed(Random.Shared.Next(100000));
+        noise.SetFractalType(FastNoiseLite.FractalType.FBm);
+        
+        //terrain
         debug.tileColor = Color.Purple;
 
         plains.tileColor = new(0, 225, 0);
         plains.colorVariation = 20;
 
-        water.tileColor = new(50,150,235);
+        water.tileColor = new(50, 150, 235);
         water.traversable = true;
         water.colorVariation = 15;
 
@@ -118,13 +127,17 @@ class World
         mountains.traversable = true;
         mountains.colorVariation = 20;
 
+        snowyMountains.tileColor = Color.White;
+        snowyMountains.traversable = true;
+        snowyMountains.colorVariation = 20;
+
         beach.tileColor = new(194, 178, 128);
         beach.colorVariation = 20;
     }
 
     //first coordinate is Y second X, easier for me to visualize
     public Dictionary<int, Dictionary<int, Tile>> yAxis = new();
-    public int tileSize = 2;
+    public int tileSize = 10;
     public int tileGap = 0;
     public int padding = 30;
     // int tileColorVariation = 30;
@@ -246,6 +259,44 @@ class World
     );
         return colorAdjusted;
     }
+
+    Terrain SelectTerrainFromNoise(int yPos, int xPos)
+    {
+        Dictionary<Terrain, float> terrainValues = new()
+        {
+            {water, 1f},
+            {beach, 0.1f},
+            {plains, 0.6f},
+            {mountains, 0.3f},
+            {snowyMountains, 0.7f}
+        };
+        float totalTerrainValue = 0;
+        foreach (float value in terrainValues.Values)
+        {
+            totalTerrainValue += value;
+        }
+
+        // foreach (KeyValuePair<Terrain, float> pair in terrainValues)
+        // {
+        //     terrainValues[pair.Key] /= totalTerrainValue;
+        // }
+        //choose from noise
+        float selectionValue = ((noise.GetNoise(xPos, yPos)+1)/2)*totalTerrainValue;
+
+        Terrain selectedTerrain = debug;
+
+        foreach (KeyValuePair<Terrain, float> pair in terrainValues)
+        {
+            totalTerrainValue -= pair.Value;
+            if (totalTerrainValue < selectionValue)
+            {
+                // Console.WriteLine(pair.Key);
+                selectedTerrain = pair.Key;
+                break;
+            }
+        }
+        return selectedTerrain;
+    }
     Terrain SelectTerrain(int yPos, int xPos)
     {
         Dictionary<Terrain, float> terrainValues = new()
@@ -318,13 +369,11 @@ class World
         Tile newTile = new();
 
 
-        Terrain selectedTerrain = SelectTerrain(y,x);
+        // Terrain selectedTerrain = SelectTerrain(y, x);
+        Terrain selectedTerrain = SelectTerrainFromNoise(y, x);
         newTile.terrain = selectedTerrain;
         int colorVariation = newTile.terrain.colorVariation;
         newTile.colorVariation = Random.Shared.Next(-colorVariation, colorVariation);
-
-
-
 
         xAxis.Add(x, newTile);
 
