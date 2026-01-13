@@ -7,28 +7,28 @@ using System.Xml.Schema;
 using Raylib_cs;
 
 //movement
-World world = new();
 
 KeyboardKey upKey = KeyboardKey.Up;
 KeyboardKey downKey = KeyboardKey.Down;
 KeyboardKey rightKey = KeyboardKey.Right;
 KeyboardKey leftKey = KeyboardKey.Left;
 
-int fovRadius = 100;
+int fovRadius = 150;
 
-int windowSize = (2 * world.padding) + ((fovRadius * 2 + 1) * world.tileGap) + ((fovRadius * 2 + 1) * world.tileSize);
+int windowSize = (2 * World.padding) + ((fovRadius * 2 + 1) * World.tileGap) + ((fovRadius * 2 + 1) * World.tileSize);
 Raylib.InitWindow(windowSize, windowSize, "Game");
+World world = new();
 Raylib.SetTargetFPS(60);
 Vector2 pos = new(0, 0);
 float moveCooldown = 0.1f;
+
+// Texture2D tx = Raylib.LoadTexture("Assets/tree1.png");
+Texture2D textureTest = Raylib.LoadTexture("Assets/tree1.png");
 
 while (!Raylib.WindowShouldClose())
 {
     Raylib.BeginDrawing();
     Raylib.ClearBackground(Color.Black);
-
-
-
 
     world.DrawFOV((int)pos.Y, (int)pos.X, fovRadius, fovRadius);
 
@@ -37,22 +37,18 @@ while (!Raylib.WindowShouldClose())
     if (Raylib.IsKeyDown(upKey))
     {
         targetPos.Y--;
-        // Raylib.WaitTime(moveCooldown);
     }
     if (Raylib.IsKeyDown(downKey))
     {
         targetPos.Y++;
-        // Raylib.WaitTime(moveCooldown);
     }
     if (Raylib.IsKeyDown(rightKey))
     {
         targetPos.X++;
-        // Raylib.WaitTime(moveCooldown);
     }
     if (Raylib.IsKeyDown(leftKey))
     {
         targetPos.X--;
-        // Raylib.WaitTime(moveCooldown);
     }
 
     if (pos != targetPos)
@@ -65,63 +61,111 @@ while (!Raylib.WindowShouldClose())
         }
     }
 
-
-
     // Console.WriteLine(pos);
     Raylib.EndDrawing();
 }
 
+class TerrainDecoration
+{
+    public Texture2D texture;
+    public string textureDirectory = "";
+    public TerrainDecoration(string textureToLoad)
+    {
+        textureDirectory = textureToLoad;
+        texture = Raylib.LoadTexture(textureToLoad);
+        // Raylib.SetTextureFilter(texture, TextureFilter.Point);
+    }
+    public Vector2 posOffset = new(0, 0);
+    public float tileScale = 1; //how big the texture should be in comparison to tileSize
+}
 class Tile
 {
     public Terrain terrain;
     public int colorVariation = 0;
 
+    public TerrainDecoration decoration = null;
+    public Vector2 decorationPos = new(0.5f, 0.5f);
+
     // public Structure structure;
-}
-enum Structure
-{
-    hut,
-    ruins,
-    campfire,
 }
 class Terrain
 {
     public Color tileColor = Color.Pink;
-
     public int colorVariation = 0;
     // public Structure[] validStructures;
     public bool traversable = true;
+    public Dictionary<TerrainDecoration, float> terrainDecorations;
 }
+
+class Water: Terrain
+{
+    public Water()
+    {
+        // tileColor = Color.Blue;
+        tileColor = new(50, 150, 235);
+        traversable = true;
+        colorVariation = 15;
+    }
+}
+
+
+
+class HeightNoise : FastNoiseLite
+{
+    public void Setup(int seed)
+    {
+        SetNoiseType(FastNoiseLite.NoiseType.Perlin);
+        SetFrequency(0.025f);
+        SetSeed(seed);
+        SetFractalType(FastNoiseLite.FractalType.FBm);
+    }
+}
+
 class World
 {
     //noise
-    FastNoiseLite noise = new();
+    HeightNoise heightNoise = new HeightNoise();
+    FastNoiseLite biomeNoise = new();
 
-    //terrain classes
+    //height based terrain classes
     Terrain debug = new();
-    Terrain plains = new();
-    Terrain water = new();
+    Terrain biome = new(); //biome will be replaced depending on biome noise
+    Terrain water = new Water();
     Terrain mountains = new();
     Terrain snowyMountains = new();
-
     Terrain beach = new();
+
+    //biome based terrain classes
+    Terrain plains = new();
+    Terrain desert = new();
+    Terrain forest = new();
+
+    //terrain decorations
+    TerrainDecoration tree1 = new("Assets/tree1.png");
+    TerrainDecoration tree2 = new("Assets/tree2.png");
     public World()
     {
+        //terrainDecorations
+        globalTerrainDecoMult = 1 / tileSize;
         //noise
-        noise.SetNoiseType(FastNoiseLite.NoiseType.Perlin);
-        noise.SetFrequency(0.05f);
-        noise.SetSeed(Random.Shared.Next(100000));
-        noise.SetFractalType(FastNoiseLite.FractalType.FBm);
+        int seed = 359359;
         
+        heightNoise.Setup(seed);
+
+        biomeNoise.SetNoiseType(FastNoiseLite.NoiseType.Cellular);
+        biomeNoise.SetFrequency(0.005f);
+        biomeNoise.SetSeed(seed + 12345);
+        biomeNoise.SetFractalType(FastNoiseLite.FractalType.DomainWarpIndependent);
+        biomeNoise.SetCellularReturnType(FastNoiseLite.CellularReturnType.CellValue);
+        biomeNoise.SetCellularDistanceFunction(FastNoiseLite.CellularDistanceFunction.Hybrid);
+        biomeNoise.SetDomainWarpType(FastNoiseLite.DomainWarpType.OpenSimplex2Reduced);
+        biomeNoise.SetCellularJitter(1.5f);
+        biomeNoise.SetDomainWarpAmp(2f);
+
         //terrain
         debug.tileColor = Color.Purple;
 
-        plains.tileColor = new(0, 225, 0);
-        plains.colorVariation = 20;
 
-        water.tileColor = new(50, 150, 235);
-        water.traversable = true;
-        water.colorVariation = 15;
 
         mountains.tileColor = Color.Gray;
         mountains.traversable = true;
@@ -133,14 +177,28 @@ class World
 
         beach.tileColor = new(194, 178, 128);
         beach.colorVariation = 20;
+
+        plains.tileColor = new(0, 225, 0);
+        plains.colorVariation = 20;
+
+        desert.tileColor = new(245, 245, 220);
+        desert.colorVariation = 20;
+
+        forest.tileColor = Color.DarkGreen;
+        forest.colorVariation = 15;
+        forest.terrainDecorations = new()
+        {
+            {tree1,0.1f},
+            {tree2,0.1f},
+        };
     }
 
-    //first coordinate is Y second X, easier for me to visualize
+    //first coordinate is Y second X
     public Dictionary<int, Dictionary<int, Tile>> yAxis = new();
-    public int tileSize = 10;
-    public int tileGap = 0;
-    public int padding = 30;
-    // int tileColorVariation = 30;
+    public static int tileSize = 2;
+    public static int tileGap = 0;
+    public static int padding = 30;
+    float globalTerrainDecoMult = 1;
     static int GetTerrainFrequency(List<Tile> tileList, Terrain terrain)
     {
         int amount = 0;
@@ -150,15 +208,23 @@ class World
         }
         return amount;
     }
-    (int, int) GetTileGraphicsPos(int yPos, int xPos)
+    (int, int) GetGraphicsPos(int yPos, int xPos)
     {
         int graphicsYPos = padding + ((tileSize + tileGap) * yPos);
         int graphicsXPos = padding + ((tileSize + tileGap) * xPos);
         return (graphicsYPos, graphicsXPos);
     }
+    void DrawTileTerrainDecoration(Tile tile, int tileGraphicsY, int tileGraphicsX)
+    {
+        TerrainDecoration deco = tile.decoration;
+        int decoGraphicsY = tileGraphicsY - (int)(deco.posOffset.Y * tileSize);
+        int decoGraphicsX = tileGraphicsX - (int)(deco.posOffset.X * tileSize);
+        Raylib.DrawTexture(deco.texture, decoGraphicsX, decoGraphicsY, Color.White);
+        // Console.WriteLine(deco.textureDirectory);
+    }
     void DrawTile(int yPos, int xPos, Tile tile, bool hightlight)
     {
-        (int graphicsYPos, int graphicsXPos) = GetTileGraphicsPos(yPos, xPos);
+        (int graphicsYPos, int graphicsXPos) = GetGraphicsPos(yPos, xPos);
 
         Color color = tile.terrain.tileColor;
         color = AdjustColor(color, tile.colorVariation);
@@ -166,9 +232,12 @@ class World
         if (hightlight) Raylib.DrawRectangle(graphicsXPos - tileGap / 2, graphicsYPos - tileGap / 2, tileSize + tileGap, tileSize + tileGap, Color.White);
 
         Raylib.DrawRectangle(graphicsXPos, graphicsYPos, tileSize, tileSize, color);
+        // if (tile.decoration != null) DrawTileTerrainDecoration(tile, graphicsYPos, graphicsXPos);
+
     }
     public void DrawFOV(int yCenter, int xCenter, int yRadius, int xRadius)
     {
+        Dictionary<Tile, Vector2> tilesWithDeco = new();
         Tile centerTile = GetTileFromCoords(yCenter, xCenter);
         int yMin = yCenter - yRadius;
         int yMax = yCenter + yRadius;
@@ -187,22 +256,31 @@ class World
                 if (tile == centerTile) shouldHightlight = true;
 
                 DrawTile(screenY, screenX, tile, shouldHightlight);
+                if (tile.decoration != null)
+                {
+                    tilesWithDeco.Add(tile, new(screenX, screenY));
+                }
+            }
+            foreach (KeyValuePair<Tile, Vector2> pair in tilesWithDeco)
+            {
+                (int graphicsY, int graphicsX) = GetGraphicsPos((int)pair.Value.Y, (int)pair.Value.X);
+                DrawTileTerrainDecoration(pair.Key, graphicsY, graphicsX);
             }
         }
     }
     Dictionary<int, Tile> GetXAxisDict(int y)
     {
-        if (yAxis.ContainsKey(y))
-        {
-            return yAxis[y];
-        }
-        else
-        {
-            Dictionary<int, Tile> xAxis = new();
-            yAxis.Add(y, xAxis);
-            return xAxis;
-        }
-    }
+            if (yAxis.ContainsKey(y))
+            {
+                return yAxis[y];
+            }
+            else
+            {
+                Dictionary<int, Tile> xAxis = new();
+                yAxis.Add(y, xAxis);
+                return xAxis;
+            }
+    }   
     public Tile GetTileFromCoords(int y, int x)
     {
         return GetTileFromCoords(y, x, true);
@@ -242,7 +320,7 @@ class World
         }
         return tiles;
     }
-    int AdjustRGBValue(int value, int change)
+    static int AdjustRGBValue(int value, int change)
     {
         value += change;
         if (value > 255) value = 255;
@@ -259,42 +337,70 @@ class World
     );
         return colorAdjusted;
     }
-
-    Terrain SelectTerrainFromNoise(int yPos, int xPos)
+    float GetTotalDictionaryValue<T>(Dictionary<T, float> dictValues)
     {
-        Dictionary<Terrain, float> terrainValues = new()
+        float totalValue = 0;
+        foreach (KeyValuePair<T, float> pair in dictValues)
         {
-            {water, 1f},
-            {beach, 0.1f},
-            {plains, 0.6f},
-            {mountains, 0.3f},
-            {snowyMountains, 0.7f}
-        };
-        float totalTerrainValue = 0;
-        foreach (float value in terrainValues.Values)
-        {
-            totalTerrainValue += value;
+            totalValue += pair.Value;
         }
+        return totalValue;
+    }
+    T SelectKeyFromValueDict<T>(Dictionary<T, float> dict, float selectionValue)
+    {
+        float totalValue = GetTotalDictionaryValue(dict);
 
-        // foreach (KeyValuePair<Terrain, float> pair in terrainValues)
-        // {
-        //     terrainValues[pair.Key] /= totalTerrainValue;
-        // }
-        //choose from noise
-        float selectionValue = ((noise.GetNoise(xPos, yPos)+1)/2)*totalTerrainValue;
+        T selected = default;
 
-        Terrain selectedTerrain = debug;
-
-        foreach (KeyValuePair<Terrain, float> pair in terrainValues)
+        foreach (KeyValuePair<T, float> pair in dict)
         {
-            totalTerrainValue -= pair.Value;
-            if (totalTerrainValue < selectionValue)
+            totalValue -= pair.Value;
+            if (totalValue < selectionValue)
             {
                 // Console.WriteLine(pair.Key);
-                selectedTerrain = pair.Key;
+                selected = pair.Key;
                 break;
             }
         }
+        return selected;
+    }
+    float AdjustNoiseValue(float value, float totalValue)
+    {
+        return ((value + 1) / 2) * totalValue;
+    }
+    Terrain SelectTerrainFromNoise(int yPos, int xPos)
+    {
+        Dictionary<Terrain, float> heightValues = new()
+        {
+            {water, 1f},
+            {beach, 0.1f},
+            {biome, 0.6f},
+            {mountains, 0.3f},
+            {snowyMountains, 0.7f}
+        };
+        Dictionary<Terrain, float> biomeValues = new()
+        {
+            {desert, 0.5f},
+            {plains, 0.5f},
+            {forest, 0.5f},
+        };
+
+
+        float totalHeightValue = GetTotalDictionaryValue(heightValues);
+        float totalBiomeValue = GetTotalDictionaryValue(biomeValues);
+
+
+        //choose from noise
+        float heightSelectionValue = AdjustNoiseValue(heightNoise.GetNoise(xPos, yPos), totalHeightValue);
+        Terrain selectedTerrain = SelectKeyFromValueDict(heightValues, heightSelectionValue);
+
+        if (selectedTerrain == biome)
+        {
+            float biomeSelectionValue = AdjustNoiseValue(biomeNoise.GetNoise(xPos, yPos), totalBiomeValue);
+            // Console.WriteLine(biomeSelectionValue);
+            selectedTerrain = SelectKeyFromValueDict(biomeValues, biomeSelectionValue);
+        }
+
         return selectedTerrain;
     }
     Terrain SelectTerrain(int yPos, int xPos)
@@ -363,17 +469,25 @@ class World
 
         return selectedTerrain;
     }
-    public Tile GenerateTileAtCoords(int y, int x)
+    Tile GenerateTileAtCoords(int y, int x)
     {
         Dictionary<int, Tile> xAxis = GetXAxisDict(y);
         Tile newTile = new();
-
 
         // Terrain selectedTerrain = SelectTerrain(y, x);
         Terrain selectedTerrain = SelectTerrainFromNoise(y, x);
         newTile.terrain = selectedTerrain;
         int colorVariation = newTile.terrain.colorVariation;
         newTile.colorVariation = Random.Shared.Next(-colorVariation, colorVariation);
+
+        if (selectedTerrain.terrainDecorations != null)
+        {
+            // Console.WriteLine(selectedTerrain.tileColor);
+            // float totalTerrainDecoValue = GetTotalDictionaryValue(selectedTerrain.terrainDecorations);
+            float terrainDecoSelectionValue = 0.0001f;//10000*((float)Random.Shared.NextDouble() / tileSize);
+            TerrainDecoration selectedTerrainDeco = SelectKeyFromValueDict(selectedTerrain.terrainDecorations, terrainDecoSelectionValue);
+            newTile.decoration = selectedTerrainDeco;
+        }
 
         xAxis.Add(x, newTile);
 

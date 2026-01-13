@@ -21,3 +21,5 @@ C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\bin
 C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\bin\Debug\net9.0\runtimes\win-x86\native\raylib.dll
 C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\obj\Debug\net9.0\2dAdventure.csproj.AssemblyReference.cache
 C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\obj\Debug\net9.0\2dAdvent.F50BBE6F.Up2Date
+C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\bin\Debug\net9.0\Assets\tree1.png
+C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\bin\Debug\net9.0\Assets\tree2.png
