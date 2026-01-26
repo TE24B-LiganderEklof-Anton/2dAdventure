@@ -13,7 +13,7 @@ KeyboardKey downKey = KeyboardKey.Down;
 KeyboardKey rightKey = KeyboardKey.Right;
 KeyboardKey leftKey = KeyboardKey.Left;
 
-int fovRadius = 150;
+int fovRadius = 20;
 
 int windowSize = (2 * World.padding) + ((fovRadius * 2 + 1) * World.tileGap) + ((fovRadius * 2 + 1) * World.tileSize);
 Raylib.InitWindow(windowSize, windowSize, "Game");
@@ -68,15 +68,12 @@ while (!Raylib.WindowShouldClose())
 class TerrainDecoration
 {
     public Texture2D texture;
-    public string textureDirectory = "";
     public TerrainDecoration(string textureToLoad)
     {
-        textureDirectory = textureToLoad;
         texture = Raylib.LoadTexture(textureToLoad);
-        // Raylib.SetTextureFilter(texture, TextureFilter.Point);
     }
-    public Vector2 posOffset = new(0, 0);
-    public float tileScale = 1; //how big the texture should be in comparison to tileSize
+    public Vector2 posOffset = new(0.5f, 0.5f);
+    public float scale = 1;
 }
 class Tile
 {
@@ -84,7 +81,7 @@ class Tile
     public int colorVariation = 0;
 
     public TerrainDecoration decoration = null;
-    public Vector2 decorationPos = new(0.5f, 0.5f);
+    public Vector2 decorationOffset = new(0f,0f);
 
     // public Structure structure;
 }
@@ -96,8 +93,7 @@ class Terrain
     public bool traversable = true;
     public Dictionary<TerrainDecoration, float> terrainDecorations;
 }
-
-class Water: Terrain
+class Water : Terrain
 {
     public Water()
     {
@@ -107,9 +103,6 @@ class Water: Terrain
         colorVariation = 15;
     }
 }
-
-
-
 class HeightNoise : FastNoiseLite
 {
     public void Setup(int seed)
@@ -120,7 +113,6 @@ class HeightNoise : FastNoiseLite
         SetFractalType(FastNoiseLite.FractalType.FBm);
     }
 }
-
 class World
 {
     //noise
@@ -139,21 +131,32 @@ class World
     Terrain plains = new();
     Terrain desert = new();
     Terrain forest = new();
+    Terrain flowerField = new();
 
     //terrain decorations
     TerrainDecoration tree1 = new("Assets/tree1.png");
     TerrainDecoration tree2 = new("Assets/tree2.png");
+    TerrainDecoration flower1 = new("Assets/flower1.png");
+    TerrainDecoration flower2 = new("Assets/flower2.png");
+    TerrainDecoration flower3 = new("Assets/flower3.png");
+    TerrainDecoration flower4 = new("Assets/flower4.png");
+    TerrainDecoration flower5 = new("Assets/flower5.png");
+
+    Dictionary<Terrain,float> biomeValues;
+    Dictionary<Terrain,float> heightValues;
     public World()
     {
         //terrainDecorations
-        globalTerrainDecoMult = 1 / tileSize;
+        tree1.scale = 2f;
+        tree2.scale = 2f;
+
         //noise
-        int seed = 359359;
-        
+        int seed = Random.Shared.Next(10000000);
+
         heightNoise.Setup(seed);
 
         biomeNoise.SetNoiseType(FastNoiseLite.NoiseType.Cellular);
-        biomeNoise.SetFrequency(0.005f);
+        biomeNoise.SetFrequency(0.02f);
         biomeNoise.SetSeed(seed + 12345);
         biomeNoise.SetFractalType(FastNoiseLite.FractalType.DomainWarpIndependent);
         biomeNoise.SetCellularReturnType(FastNoiseLite.CellularReturnType.CellValue);
@@ -164,8 +167,6 @@ class World
 
         //terrain
         debug.tileColor = Color.Purple;
-
-
 
         mountains.tileColor = Color.Gray;
         mountains.traversable = true;
@@ -178,8 +179,29 @@ class World
         beach.tileColor = new(194, 178, 128);
         beach.colorVariation = 20;
 
-        plains.tileColor = new(0, 225, 0);
+        plains.tileColor = new(0, 145, 0);
         plains.colorVariation = 20;
+        plains.terrainDecorations = new()
+        {
+            {tree1, 0.01f},
+            {tree2, 0.01f},
+            {flower1, 0.003f},
+            {flower2, 0.003f},
+            {flower3, 0.003f},
+            {flower4, 0.003f},
+            {flower5, 0.003f},
+        };
+
+        flowerField.tileColor = new(0,175,0);
+        flowerField.colorVariation = 15;
+        flowerField.terrainDecorations = new()
+        {
+            {flower1, 0.1f},
+            {flower2, 0.1f},
+            {flower3, 0.1f},
+            {flower4, 0.1f},
+            {flower5, 0.1f},
+        };
 
         desert.tileColor = new(245, 245, 220);
         desert.colorVariation = 20;
@@ -191,14 +213,29 @@ class World
             {tree1,0.1f},
             {tree2,0.1f},
         };
+
+        //Generation values
+        heightValues = new()
+        {
+            {water, 1f},
+            {beach, 0.1f},
+            {biome, 0.6f},
+            {mountains, 0.3f},
+            {snowyMountains, 0.7f}
+        };
+        biomeValues = new()
+        {
+            {desert, 0.5f},
+            {plains, 0.5f},
+            {forest,0.5f},
+            {flowerField, 0.2f}
+        };
     }
 
-    //first coordinate is Y second X
-    public Dictionary<int, Dictionary<int, Tile>> yAxis = new();
-    public static int tileSize = 2;
+    Dictionary<int, Dictionary<int, Tile>> yAxis = new();
+    public static int tileSize = 30;
     public static int tileGap = 0;
     public static int padding = 30;
-    float globalTerrainDecoMult = 1;
     static int GetTerrainFrequency(List<Tile> tileList, Terrain terrain)
     {
         int amount = 0;
@@ -216,10 +253,13 @@ class World
     }
     void DrawTileTerrainDecoration(Tile tile, int tileGraphicsY, int tileGraphicsX)
     {
+
         TerrainDecoration deco = tile.decoration;
-        int decoGraphicsY = tileGraphicsY - (int)(deco.posOffset.Y * tileSize);
-        int decoGraphicsX = tileGraphicsX - (int)(deco.posOffset.X * tileSize);
-        Raylib.DrawTexture(deco.texture, decoGraphicsX, decoGraphicsY, Color.White);
+        float scale = deco.scale * (float)tileSize / 5f;
+        // Console.WriteLine(deco.texture.Height);
+        int decoGraphicsY = tileGraphicsY - (int)((deco.texture.Height * scale * 0.6f) + (tile.decorationOffset.Y*scale));
+        int decoGraphicsX = tileGraphicsX - (int)((deco.texture.Width * scale * 0.31f) + (tile.decorationOffset.X*scale));
+        Raylib.DrawTextureEx(deco.texture, new(decoGraphicsX, decoGraphicsY), 0, scale, Color.White);
         // Console.WriteLine(deco.textureDirectory);
     }
     void DrawTile(int yPos, int xPos, Tile tile, bool hightlight)
@@ -270,17 +310,17 @@ class World
     }
     Dictionary<int, Tile> GetXAxisDict(int y)
     {
-            if (yAxis.ContainsKey(y))
-            {
-                return yAxis[y];
-            }
-            else
-            {
-                Dictionary<int, Tile> xAxis = new();
-                yAxis.Add(y, xAxis);
-                return xAxis;
-            }
-    }   
+        if (yAxis.ContainsKey(y))
+        {
+            return yAxis[y];
+        }
+        else
+        {
+            Dictionary<int, Tile> xAxis = new();
+            yAxis.Add(y, xAxis);
+            return xAxis;
+        }
+    }
     public Tile GetTileFromCoords(int y, int x)
     {
         return GetTileFromCoords(y, x, true);
@@ -352,10 +392,12 @@ class World
 
         T selected = default;
 
+        float value = 0;
+
         foreach (KeyValuePair<T, float> pair in dict)
         {
-            totalValue -= pair.Value;
-            if (totalValue < selectionValue)
+            value += pair.Value;
+            if (value > selectionValue)
             {
                 // Console.WriteLine(pair.Key);
                 selected = pair.Key;
@@ -370,20 +412,7 @@ class World
     }
     Terrain SelectTerrainFromNoise(int yPos, int xPos)
     {
-        Dictionary<Terrain, float> heightValues = new()
-        {
-            {water, 1f},
-            {beach, 0.1f},
-            {biome, 0.6f},
-            {mountains, 0.3f},
-            {snowyMountains, 0.7f}
-        };
-        Dictionary<Terrain, float> biomeValues = new()
-        {
-            {desert, 0.5f},
-            {plains, 0.5f},
-            {forest, 0.5f},
-        };
+
 
 
         float totalHeightValue = GetTotalDictionaryValue(heightValues);
@@ -484,8 +513,11 @@ class World
         {
             // Console.WriteLine(selectedTerrain.tileColor);
             // float totalTerrainDecoValue = GetTotalDictionaryValue(selectedTerrain.terrainDecorations);
-            float terrainDecoSelectionValue = 0.0001f;//10000*((float)Random.Shared.NextDouble() / tileSize);
+            // float totalTerrainDecoValue = GetTotalDictionaryValue(selectedTerrain.terrainDecorations);
+            float terrainDecoSelectionValue = (float)Random.Shared.NextDouble();
             TerrainDecoration selectedTerrainDeco = SelectKeyFromValueDict(selectedTerrain.terrainDecorations, terrainDecoSelectionValue);
+            newTile.decorationOffset.Y = Random.Shared.Next(-50,50)/25;
+            newTile.decorationOffset.X = Random.Shared.Next(-50,50)/25;
             newTile.decoration = selectedTerrainDeco;
         }
 

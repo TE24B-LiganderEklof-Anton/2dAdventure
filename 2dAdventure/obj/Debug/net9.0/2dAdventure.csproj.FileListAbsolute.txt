@@ -23,3 +23,8 @@ C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\obj
 C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\obj\Debug\net9.0\2dAdvent.F50BBE6F.Up2Date
 C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\bin\Debug\net9.0\Assets\tree1.png
 C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\bin\Debug\net9.0\Assets\tree2.png
+C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\bin\Debug\net9.0\Assets\flower1.png
+C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\bin\Debug\net9.0\Assets\flower2.png
+C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\bin\Debug\net9.0\Assets\flower3.png
+C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\bin\Debug\net9.0\Assets\flower4.png
+C:\Users\anton.ligandereklof\Documents\Programmering\2dAdventure\2dAdventure\bin\Debug\net9.0\Assets\flower5.png
